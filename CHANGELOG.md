@@ -6,6 +6,11 @@ O formato é baseado em Keep a Changelog e a numeração segue SemVer.
 
 - Ajustes e melhorias em andamento.
 
+### [5.0.2] - 2026-01-06
+
+- Troca a estratégia de login: em vez de copiar perfis, exporta/importa sessão (cookies/localStorage) por perfil.
+- Quando detectar “Entrar | TikTok”, força reseed automático no retry.
+
 ### [5.0.1] - 2026-01-06
 
 - Corrige clonagem/persistência de perfis para não “deslogar” ao abrir.

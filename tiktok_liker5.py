@@ -36,7 +36,11 @@ INPUT_MODE = "cdp"
 
 REFRESH_PROFILE_COPY_ON_START = False
 
-FORCE_REFRESH_PROFILES = set()
+FORCE_RESEED_PROFILES = set()
+
+PROFILE_SEED_ENABLED = True
+PROFILE_SEED_FORCE = False
+PROFILE_SEED_MARKER_NAME = "tiktok_seed_ok.txt"
 
 PROXY_PER_PROFILE = {
     "TikTok1": None,
@@ -153,63 +157,10 @@ def _copy_with_retries(profile_name, src, dst, attempts=3, delay_sec=0.3):
 
 
 def prepare_profile(profile_name, source_profile_dir):
-    source_user_data = os.path.normpath(CHROME_USER_DATA)
-    source_profile_path = os.path.join(source_user_data, source_profile_dir)
-    log(profile_name, f"Verificando perfil: {source_profile_path}")
-
-    if not os.path.isdir(source_profile_path):
-        raise FileNotFoundError(f"Perfil não encontrado: {source_profile_path}")
-
-    target_user_data = os.path.join(SELENIUM_PROFILE_ROOT, profile_name)
-    target_profile_path = os.path.join(target_user_data, source_profile_dir)
-
-    force_refresh = REFRESH_PROFILE_COPY_ON_START or (profile_name in FORCE_REFRESH_PROFILES)
-    if force_refresh and os.path.isdir(target_user_data):
-        try:
-            shutil.rmtree(target_user_data)
-        except Exception as e:
-            log(profile_name, f"AVISO: não consegui limpar cache do perfil: {e}")
-
-    os.makedirs(target_user_data, exist_ok=True)
-
-    source_local_state = os.path.join(source_user_data, "Local State")
-    target_local_state = os.path.join(target_user_data, "Local State")
-    has_existing_local_state = os.path.isfile(target_local_state)
-    if os.path.isfile(source_local_state) and (force_refresh or not has_existing_local_state):
-        _copy_with_retries(profile_name, source_local_state, target_local_state, attempts=5, delay_sec=0.2)
-
-    if not force_refresh and os.path.isdir(target_profile_path) and has_existing_local_state:
-        log(profile_name, f"Perfil já existe, reaproveitando: {target_user_data}")
-        _cleanup_singleton_locks(target_user_data)
-        return target_user_data, source_profile_dir
-
-    os.makedirs(target_profile_path, exist_ok=True)
-
-    ignore_names = shutil.ignore_patterns(
-        "Cache",
-        "Code Cache",
-        "GPUCache",
-        "GrShaderCache",
-        "ShaderCache",
-        "Crashpad",
-        "optimization_guide_model_cache",
-        "Media Cache",
-        "DawnCache",
-    )
-
-    log(profile_name, f"Copiando perfil completo para: {target_profile_path}")
-    shutil.copytree(
-        source_profile_path,
-        target_profile_path,
-        ignore=ignore_names,
-        dirs_exist_ok=True,
-        symlinks=True,
-        ignore_dangling_symlinks=True,
-    )
-
-    _cleanup_singleton_locks(target_user_data)
-    log(profile_name, f"Perfil preparado: {target_user_data}")
-    return target_user_data, source_profile_dir
+    user_data_dir = os.path.join(SELENIUM_PROFILE_ROOT, profile_name)
+    os.makedirs(user_data_dir, exist_ok=True)
+    _cleanup_singleton_locks(user_data_dir)
+    return user_data_dir, "Default"
 
 
 def prepare_anon_profile(profile_name):
@@ -217,6 +168,81 @@ def prepare_anon_profile(profile_name):
     os.makedirs(user_data_dir, exist_ok=True)
     _cleanup_singleton_locks(user_data_dir)
     return user_data_dir, ANON_PROFILE_DIRECTORY
+
+
+def export_tiktok_session(driver_path, chrome_profile_dir):
+    """Exporta cookies/localStorage do TikTok usando um perfil real do Chrome (sequencial)."""
+    if not os.path.isdir(os.path.join(CHROME_USER_DATA, chrome_profile_dir)):
+        return {"cookies": [], "local_storage": {}}
+
+    options = Options()
+    options.add_argument(f"--user-data-dir={CHROME_USER_DATA}")
+    options.add_argument(f"--profile-directory={chrome_profile_dir}")
+    options.add_argument("--remote-debugging-pipe")
+    options.add_argument("--no-first-run")
+    options.add_argument("--no-default-browser-check")
+    options.add_argument("--disable-notifications")
+    options.add_experimental_option("excludeSwitches", ["enable-logging", "enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
+
+    service = Service(driver_path)
+    service.log_path = "NUL"
+
+    driver = None
+    try:
+        driver = webdriver.Chrome(service=service, options=options)
+        driver.get("https://www.tiktok.com/")
+        time.sleep(4)
+        cookies = driver.get_cookies()
+        local_storage = driver.execute_script(
+            """
+            const out = {};
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              out[k] = localStorage.getItem(k);
+            }
+            return out;
+            """
+        )
+        return {"cookies": cookies, "local_storage": local_storage or {}}
+    except Exception:
+        return {"cookies": [], "local_storage": {}}
+    finally:
+        if driver:
+            try:
+                driver.quit()
+            except BaseException:
+                pass
+
+
+def seed_tiktok_session(driver, session_data):
+    """Importa cookies/localStorage do TikTok na aba atual (depois de abrir tiktok.com)."""
+    cookies = session_data.get("cookies") or []
+    local_storage = session_data.get("local_storage") or {}
+
+    for cookie in cookies:
+        payload = {}
+        for k in ("name", "value", "domain", "path", "secure", "httpOnly", "expiry", "sameSite"):
+            if k in cookie:
+                payload[k] = cookie[k]
+        try:
+            driver.add_cookie(payload)
+        except Exception:
+            continue
+
+    if local_storage:
+        try:
+            driver.execute_script(
+                """
+                const data = arguments[0] || {};
+                for (const [k, v] of Object.entries(data)) {
+                  try { localStorage.setItem(k, v); } catch (e) {}
+                }
+                """,
+                local_storage,
+            )
+        except Exception:
+            pass
 
 
 def is_browser_alive(driver):
@@ -243,15 +269,17 @@ class LikeCounter:
 
 
 class TikTokLiker:
-    def __init__(self, name, profile_dir, live_url, driver_path, counter):
+    def __init__(self, name, profile_dir, live_url, driver_path, counter, session_data=None):
         self.name = name
         self.profile_dir = profile_dir
         self.live_url = live_url
         self.driver_path = driver_path
         self.driver = None
+        self.user_data_dir = None
         self.likes = 0
         self.running = True
         self.counter = counter
+        self.session_data = session_data or {"cookies": [], "local_storage": {}}
 
     def start_browser(self):
         log(self.name, "Iniciando navegador...")
@@ -265,6 +293,7 @@ class TikTokLiker:
         except Exception as e:
             log(self.name, f"ERRO perfil: {e}")
             return False
+        self.user_data_dir = user_data_dir
 
         options.add_argument(f"--user-data-dir={user_data_dir}")
         options.add_argument(f"--profile-directory={profile_directory}")
@@ -306,13 +335,39 @@ class TikTokLiker:
         try:
             self.driver.get("https://www.tiktok.com/")
             time.sleep(4)
+
+            marker_path = None
+            if self.user_data_dir:
+                marker_path = os.path.join(self.user_data_dir, PROFILE_SEED_MARKER_NAME)
+
+            should_seed = PROFILE_SEED_ENABLED and (
+                PROFILE_SEED_FORCE
+                or (self.name in FORCE_RESEED_PROFILES)
+                or (marker_path and not os.path.exists(marker_path))
+            )
+            if should_seed and self.session_data:
+                seed_tiktok_session(self.driver, self.session_data)
+                self.driver.get("https://www.tiktok.com/")
+                time.sleep(3)
+                if marker_path:
+                    try:
+                        with open(marker_path, "w", encoding="utf-8") as f:
+                            f.write("ok\n")
+                    except Exception:
+                        pass
+
             self.driver.get(self.live_url)
             time.sleep(5)
             title = (self.driver.title or "")[:60]
             log(self.name, f"Página carregada: {title}...")
-            if (not USE_ANON_PROFILES) and ("Entrar" in (self.driver.title or "")):
-                FORCE_REFRESH_PROFILES.add(self.name)
-                log(self.name, "Detectei tela de login; vou forçar recópia do perfil na próxima tentativa.")
+            if "Entrar" in (self.driver.title or ""):
+                FORCE_RESEED_PROFILES.add(self.name)
+                if marker_path and os.path.exists(marker_path):
+                    try:
+                        os.remove(marker_path)
+                    except Exception:
+                        pass
+                log(self.name, "Detectei tela de login; vou forçar reseed na próxima tentativa.")
                 return False
             return True
         except Exception as e:
@@ -491,11 +546,18 @@ def main():
     likers = []
     threads = []
 
+    sessions = {}
+    if PROFILE_SEED_ENABLED:
+        print("\n--- Preparando sessões (cookies/localStorage) a partir dos perfis do Chrome ---\n")
+        for name, profile in PROFILES.items():
+            log(name, f"Exportando sessão do Chrome ({profile})...")
+            sessions[name] = export_tiktok_session(driver_path, profile)
+
     print(f"\n--- Iniciando {len(PROFILES)} navegadores ---\n")
 
     for name, profile in PROFILES.items():
         print(f">>> Processando {name} ({profile})...")
-        liker = TikTokLiker(name, profile, live_url, driver_path, counter)
+        liker = TikTokLiker(name, profile, live_url, driver_path, counter, session_data=sessions.get(name))
 
         started = False
         for attempt in range(1, START_RETRIES + 1):

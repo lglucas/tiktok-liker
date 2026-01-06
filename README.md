@@ -105,6 +105,11 @@ Abra / Open [tiktok_liker5.py](./tiktok_liker5.py) e ajuste:
 - PT: `PROXY_PER_PROFILE` — opcional, para proxy por perfil  
   EN: `PROXY_PER_PROFILE` — optional, per-profile proxy
 
+### Login pelo script vs login no Chrome · Script login vs Chrome login
+
+- PT: A v5 usa “seed” de sessão: ela exporta cookies/localStorage do TikTok a partir do seu perfil real do Chrome e importa para o perfil do bot. Isso evita cópia pesada de perfil e melhora consistência de login.  
+- EN: v5 uses session “seeding”: it exports TikTok cookies/localStorage from your real Chrome profile and imports them into the bot profile. This avoids heavy profile copying and improves login consistency.
+
 ### Login “não fica salvo” · Login “not persisted”
 
 - PT: Na v5, o perfil copiado agora é reaproveitado por padrão. Se quiser forçar recópia:  
