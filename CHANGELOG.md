@@ -6,6 +6,13 @@ O formato é baseado em Keep a Changelog e a numeração segue SemVer.
 
 - Ajustes e melhorias em andamento.
 
+### [5.0.1] - 2026-01-06
+
+- Corrige clonagem/persistência de perfis para não “deslogar” ao abrir.
+- Ao detectar tela “Entrar | TikTok”, força recópia do perfil no retry.
+- Corrige README (renderização) e adiciona seções bilíngues.
+- Adiciona arquivo de licença não-comercial (PolyForm).
+
 ### [5.0.0] - 2026-01-06
 
 - Cria a versão v5 como evolução direta das versões anteriores.
@@ -50,4 +57,3 @@ Arquivos:
 
 Arquivos:
 - `tiktok_liker.py`
-

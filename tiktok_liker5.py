@@ -36,6 +36,8 @@ INPUT_MODE = "cdp"
 
 REFRESH_PROFILE_COPY_ON_START = False
 
+FORCE_REFRESH_PROFILES = set()
+
 PROXY_PER_PROFILE = {
     "TikTok1": None,
     "TikTok2": None,
@@ -159,65 +161,51 @@ def prepare_profile(profile_name, source_profile_dir):
         raise FileNotFoundError(f"Perfil não encontrado: {source_profile_path}")
 
     target_user_data = os.path.join(SELENIUM_PROFILE_ROOT, profile_name)
+    target_profile_path = os.path.join(target_user_data, source_profile_dir)
+
+    force_refresh = REFRESH_PROFILE_COPY_ON_START or (profile_name in FORCE_REFRESH_PROFILES)
+    if force_refresh and os.path.isdir(target_user_data):
+        try:
+            shutil.rmtree(target_user_data)
+        except Exception as e:
+            log(profile_name, f"AVISO: não consegui limpar cache do perfil: {e}")
+
     os.makedirs(target_user_data, exist_ok=True)
 
     source_local_state = os.path.join(source_user_data, "Local State")
     target_local_state = os.path.join(target_user_data, "Local State")
     has_existing_local_state = os.path.isfile(target_local_state)
-    if not has_existing_local_state and os.path.isfile(source_local_state):
+    if os.path.isfile(source_local_state) and (force_refresh or not has_existing_local_state):
         _copy_with_retries(profile_name, source_local_state, target_local_state, attempts=5, delay_sec=0.2)
 
-    target_profile_path = os.path.join(target_user_data, source_profile_dir)
-    os.makedirs(target_profile_path, exist_ok=True)
-
-    if not REFRESH_PROFILE_COPY_ON_START and has_existing_local_state:
+    if not force_refresh and os.path.isdir(target_profile_path) and has_existing_local_state:
         log(profile_name, f"Perfil já existe, reaproveitando: {target_user_data}")
         _cleanup_singleton_locks(target_user_data)
         return target_user_data, source_profile_dir
 
-    def _copy_profile_item(relative_path):
-        src = os.path.join(source_profile_path, relative_path)
-        dst = os.path.join(target_profile_path, relative_path)
-        if not os.path.exists(src):
-            return
-        os.makedirs(os.path.dirname(dst), exist_ok=True)
+    os.makedirs(target_profile_path, exist_ok=True)
 
-        try:
-            if os.path.isdir(src):
-                ignore_names = shutil.ignore_patterns(
-                    "Cache",
-                    "Code Cache",
-                    "GPUCache",
-                    "GrShaderCache",
-                    "ShaderCache",
-                    "Crashpad",
-                    "optimization_guide_model_cache",
-                )
-                shutil.copytree(
-                    src,
-                    dst,
-                    ignore=ignore_names,
-                    dirs_exist_ok=True,
-                    symlinks=True,
-                    ignore_dangling_symlinks=True,
-                )
-            else:
-                shutil.copy2(src, dst)
-        except Exception as e:
-            log(profile_name, f"AVISO: falha ao copiar '{relative_path}': {e}")
+    ignore_names = shutil.ignore_patterns(
+        "Cache",
+        "Code Cache",
+        "GPUCache",
+        "GrShaderCache",
+        "ShaderCache",
+        "Crashpad",
+        "optimization_guide_model_cache",
+        "Media Cache",
+        "DawnCache",
+    )
 
-    log(profile_name, f"Copiando dados essenciais do perfil para: {target_profile_path}")
-    _copy_profile_item("Preferences")
-    _copy_profile_item("Secure Preferences")
-    _copy_profile_item("Network")
-    _copy_profile_item("Local Storage")
-    _copy_profile_item("Session Storage")
-    _copy_profile_item("WebStorage")
-    _copy_profile_item("IndexedDB")
-    _copy_profile_item("Service Worker")
-    _copy_profile_item("Storage")
-    _copy_profile_item("Cookies")
-    _copy_profile_item(os.path.join("Network", "Cookies"))
+    log(profile_name, f"Copiando perfil completo para: {target_profile_path}")
+    shutil.copytree(
+        source_profile_path,
+        target_profile_path,
+        ignore=ignore_names,
+        dirs_exist_ok=True,
+        symlinks=True,
+        ignore_dangling_symlinks=True,
+    )
 
     _cleanup_singleton_locks(target_user_data)
     log(profile_name, f"Perfil preparado: {target_user_data}")
@@ -320,7 +308,12 @@ class TikTokLiker:
             time.sleep(4)
             self.driver.get(self.live_url)
             time.sleep(5)
-            log(self.name, f"Página carregada: {self.driver.title[:40]}...")
+            title = (self.driver.title or "")[:60]
+            log(self.name, f"Página carregada: {title}...")
+            if (not USE_ANON_PROFILES) and ("Entrar" in (self.driver.title or "")):
+                FORCE_REFRESH_PROFILES.add(self.name)
+                log(self.name, "Detectei tela de login; vou forçar recópia do perfil na próxima tentativa.")
+                return False
             return True
         except Exception as e:
             log(self.name, f"ERRO ao acessar live: {e}")
