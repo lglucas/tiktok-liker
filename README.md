@@ -33,6 +33,10 @@ Site / Website: https://ash.app.br
   - PT: v5 — modo CDP (melhor para background), proxy por perfil e perfis persistentes  
   - EN: v5 — CDP input mode (better in background), per-profile proxy and persistent profiles
 
+- [tiktok_liker6.py](./tiktok_liker6.py)  
+  - PT: v6 — Selenium estável + login assistido (você confirma no terminal)  
+  - EN: v6 — stable Selenium + assisted login (you confirm in terminal)
+
 Histórico completo / Full history: [CHANGELOG.md](./CHANGELOG.md)
 
 ## Qual versão usar? · Which version to use?
@@ -44,6 +48,7 @@ Histórico completo / Full history: [CHANGELOG.md](./CHANGELOG.md)
 | 3 | `tiktok_liker3.py` | Navegadores diferentes | Varia por browser | Médio | Testar “separar por browser” |
 | 4 | `tiktok_liker4.py` | Anonimizados (isolados) | ActionChains | Médio | Testar isolamento total de perfil |
 | 5 | `tiktok_liker5.py` | Copiados ou anonimizados | CDP/ActionChains | Alto (CDP) | Recomendado para usar o PC livre |
+| 6 | `tiktok_liker6.py` | Copiados (isolados) | send_keys/ActionChains | Alto | Recomendado quando login automático falha |
 
 ## Requisitos · Requirements
 
@@ -53,6 +58,8 @@ Histórico completo / Full history: [CHANGELOG.md](./CHANGELOG.md)
   EN: Python 3 (recommended: 3.10+)
 - PT: Google Chrome instalado  
   EN: Google Chrome installed
+- PT: (Opcional) pywin32 para modo Win32 (background)  
+  EN: (Optional) pywin32 for Win32 background mode
 
 ## Instalação (VSCode + PowerShell) · Installation
 
@@ -82,6 +89,12 @@ python -m venv venv
 pip install selenium webdriver-manager
 ```
 
+Opcional / Optional:
+
+```powershell
+pip install pywin32
+```
+
 ## Como rodar (recomendado) · How to run (recommended)
 
 ```powershell
@@ -109,6 +122,15 @@ Abra / Open [tiktok_liker5.py](./tiktok_liker5.py) e ajuste:
 
 - PT: A v5 usa “seed” de sessão: ela exporta cookies/localStorage do TikTok a partir do seu perfil real do Chrome e importa para o perfil do bot. Isso evita cópia pesada de perfil e melhora consistência de login.  
 - EN: v5 uses session “seeding”: it exports TikTok cookies/localStorage from your real Chrome profile and imports them into the bot profile. This avoids heavy profile copying and improves login consistency.
+
+### Modo manual (Win32) · Manual mode (Win32)
+
+- PT: Se o Selenium continuar abrindo “deslogado”, você pode usar o modo Win32: abra manualmente 3 janelas já logadas e na live, e deixe o script apenas enviar `L` para as janelas (sem Selenium).  
+- EN: If Selenium keeps opening “logged out”, you can use Win32 mode: manually open 3 windows already logged in and on the live, and let the script only send `L` to those windows (no Selenium).
+
+Para ativar / To enable:
+
+- `INPUT_MODE = "win32"`
 
 ### Login “não fica salvo” · Login “not persisted”
 

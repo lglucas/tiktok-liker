@@ -6,6 +6,17 @@ O formato é baseado em Keep a Changelog e a numeração segue SemVer.
 
 - Ajustes e melhorias em andamento.
 
+### [6.0.0] - 2026-01-06
+
+- Adiciona a versão v6 como retorno ao padrão Selenium que funcionava em background.
+- Implementa “login assistido”: quando detectar tela de login, aguarda você logar e confirmar no terminal.
+- Separa cache de perfis em `ChromeProfiles_v6` para evitar conflito com versões antigas.
+
+### [5.1.0] - 2026-01-06
+
+- Adiciona modo Win32 manual para enviar `L` em background usando janelas já abertas.
+- Mantém o modo Selenium/CDP como opção, mas adiciona “plano B” para quando login falhar.
+
 ### [5.0.2] - 2026-01-06
 
 - Troca a estratégia de login: em vez de copiar perfis, exporta/importa sessão (cookies/localStorage) por perfil.
