@@ -34,6 +34,8 @@ USE_ANON_PROFILES = False
 
 INPUT_MODE = "cdp"
 
+REFRESH_PROFILE_COPY_ON_START = False
+
 PROXY_PER_PROFILE = {
     "TikTok1": None,
     "TikTok2": None,
@@ -161,11 +163,17 @@ def prepare_profile(profile_name, source_profile_dir):
 
     source_local_state = os.path.join(source_user_data, "Local State")
     target_local_state = os.path.join(target_user_data, "Local State")
-    if os.path.isfile(source_local_state):
+    has_existing_local_state = os.path.isfile(target_local_state)
+    if not has_existing_local_state and os.path.isfile(source_local_state):
         _copy_with_retries(profile_name, source_local_state, target_local_state, attempts=5, delay_sec=0.2)
 
     target_profile_path = os.path.join(target_user_data, source_profile_dir)
     os.makedirs(target_profile_path, exist_ok=True)
+
+    if not REFRESH_PROFILE_COPY_ON_START and has_existing_local_state:
+        log(profile_name, f"Perfil já existe, reaproveitando: {target_user_data}")
+        _cleanup_singleton_locks(target_user_data)
+        return target_user_data, source_profile_dir
 
     def _copy_profile_item(relative_path):
         src = os.path.join(source_profile_path, relative_path)
