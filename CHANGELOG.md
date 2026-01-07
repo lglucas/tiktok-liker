@@ -6,6 +6,14 @@ O formato é baseado em Keep a Changelog e a numeração segue SemVer.
 
 - Ajustes e melhorias em andamento.
 
+### [7.0.0] - 2026-01-07
+
+- Adiciona a versão v7 como “orquestrador/checklist” para isolamento tipo VM (VirtualBox/Hyper-V).
+- Inclui alternativa leve: abrir múltiplas instâncias do Chrome com `--user-data-dir` isolado.
+
+Arquivos:
+- `tiktok_liker7.py`
+
 ### [6.0.0] - 2026-01-06
 
 - Adiciona a versão v6 como retorno ao padrão Selenium que funcionava em background.
