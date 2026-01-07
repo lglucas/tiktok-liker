@@ -32,7 +32,7 @@ PROFILES = {
 
 USE_ANON_PROFILES = False
 
-INPUT_MODE = "cdp"
+INPUT_MODE = "win32"
 
 REFRESH_PROFILE_COPY_ON_START = False
 
@@ -41,6 +41,12 @@ FORCE_RESEED_PROFILES = set()
 PROFILE_SEED_ENABLED = True
 PROFILE_SEED_FORCE = False
 PROFILE_SEED_MARKER_NAME = "tiktok_seed_ok.txt"
+
+WIN32_MODE_WINDOW_FILTER = "tiktok"
+WIN32_MODE_EXCLUDE_TITLES = ["entrar | tiktok"]
+WIN32_MODE_TARGET_WINDOWS = 3
+WIN32_MODE_INTERVAL_SEC = 0.05
+WIN32_MODE_ALLOW_FOCUS = True
 
 PROXY_PER_PROFILE = {
     "TikTok1": None,
@@ -509,6 +515,10 @@ def main():
     print("   TikTok Liker v5 - 3 PERFIS")
     print("=" * 50 + "\n")
 
+    if INPUT_MODE == "win32":
+        run_win32_mode()
+        return
+
     print("Fechando Chrome...")
     kill_chrome()
     print("OK!\n")
@@ -624,6 +634,132 @@ def main():
         total = counter.get()
         print(f"\nTotal final (soma dos 3 perfis): {total}")
     print("\nFim!")
+
+def _try_import_pywin32():
+    """Tenta importar pywin32 e retorna (win32gui, win32api, win32con) ou (None, None, None)."""
+    try:
+        import win32api  # type: ignore
+        import win32con  # type: ignore
+        import win32gui  # type: ignore
+
+        return win32gui, win32api, win32con
+    except Exception:
+        return None, None, None
+
+
+def _normalize_title(title):
+    return (title or "").strip().lower()
+
+
+def list_tiktok_windows():
+    """Lista janelas do Windows que parecem ser TikTok no navegador."""
+    win32gui, _, _ = _try_import_pywin32()
+    if not win32gui:
+        return []
+
+    results = []
+
+    def enum_handler(hwnd, _):
+        try:
+            if not win32gui.IsWindowVisible(hwnd):
+                return
+            title = win32gui.GetWindowText(hwnd) or ""
+            if not title.strip():
+                return
+            norm = _normalize_title(title)
+            if WIN32_MODE_WINDOW_FILTER and WIN32_MODE_WINDOW_FILTER.lower() not in norm:
+                return
+            for bad in WIN32_MODE_EXCLUDE_TITLES:
+                if bad and bad.lower() in norm:
+                    return
+            results.append((hwnd, title))
+        except Exception:
+            return
+
+    win32gui.EnumWindows(enum_handler, None)
+    return results
+
+
+def send_l_to_window(hwnd):
+    """Envia tecla 'L' para uma janela (tentativa background via mensagens)."""
+    win32gui, win32api, win32con = _try_import_pywin32()
+    if not (win32gui and win32api and win32con):
+        return False
+
+    vk_l = 0x4C
+    try:
+        if WIN32_MODE_ALLOW_FOCUS:
+            try:
+                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+            except Exception:
+                pass
+            try:
+                win32gui.SetForegroundWindow(hwnd)
+            except Exception:
+                pass
+
+        win32api.PostMessage(hwnd, win32con.WM_KEYDOWN, vk_l, 0)
+        win32api.PostMessage(hwnd, win32con.WM_CHAR, ord("l"), 0)
+        win32api.PostMessage(hwnd, win32con.WM_KEYUP, vk_l, 0)
+        return True
+    except Exception:
+        return False
+
+
+def run_win32_mode():
+    """Modo manual: você abre as janelas e o script envia 'L' em background."""
+    win32gui, _, _ = _try_import_pywin32()
+    print("\n" + "=" * 50)
+    print("   MODO MANUAL (WIN32) - BACKGROUND")
+    print("=" * 50 + "\n")
+
+    if not win32gui:
+        print("Dependência faltando: pywin32")
+        print("Instale assim:")
+        print("  pip install pywin32")
+        return
+
+    print("1) Abra 3 janelas do navegador (perfis diferentes) já LOGADAS")
+    print("2) Abra a live em cada uma delas")
+    print("3) Você pode minimizar as janelas")
+    input("\nQuando estiver tudo pronto, pressione ENTER para começar...")
+
+    windows = list_tiktok_windows()
+    if not windows:
+        print("\nNão encontrei janelas do TikTok.")
+        print("Dica: deixe a live aberta e verifique se o título contém 'TikTok'.")
+        return
+
+    print("\nJanelas encontradas:")
+    for idx, (_, title) in enumerate(windows, start=1):
+        print(f"  {idx}) {title}")
+
+    selected = windows[:WIN32_MODE_TARGET_WINDOWS]
+    if len(windows) != WIN32_MODE_TARGET_WINDOWS:
+        raw = input(
+            f"\nSelecione {WIN32_MODE_TARGET_WINDOWS} números separados por vírgula "
+            f"(ENTER = usar as primeiras {min(WIN32_MODE_TARGET_WINDOWS, len(windows))}): "
+        ).strip()
+        if raw:
+            try:
+                indexes = [int(x.strip()) for x in raw.split(",") if x.strip()]
+                picks = []
+                for i in indexes[:WIN32_MODE_TARGET_WINDOWS]:
+                    if 1 <= i <= len(windows):
+                        picks.append(windows[i - 1])
+                if picks:
+                    selected = picks
+            except Exception:
+                pass
+
+    print("\nRodando. Ctrl+C para parar.")
+    try:
+        while True:
+            for hwnd, _ in selected:
+                send_l_to_window(hwnd)
+            time.sleep(WIN32_MODE_INTERVAL_SEC)
+    except KeyboardInterrupt:
+        print("\nParando...")
 
 
 if __name__ == "__main__":
