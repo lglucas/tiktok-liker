@@ -12,6 +12,11 @@ O formato é baseado em Keep a Changelog e a numeração segue SemVer.
 - Implementa “login assistido”: quando detectar tela de login, aguarda você logar e confirmar no terminal.
 - Separa cache de perfis em `ChromeProfiles_v6` para evitar conflito com versões antigas.
 
+### [6.0.1] - 2026-01-06
+
+- Simplifica o v6: remove cópia de perfil e usa user-data-dir isolado por janela.
+- Torna o login assistido global: abre janelas uma vez e aguarda você logar nelas.
+
 ### [5.1.0] - 2026-01-06
 
 - Adiciona modo Win32 manual para enviar `L` em background usando janelas já abertas.
