@@ -34,8 +34,8 @@ Site / Website: https://ash.app.br
   - EN: v5 — CDP input mode (better in background), per-profile proxy and persistent profiles
 
 - [tiktok_liker6.py](./tiktok_liker6.py)  
-  - PT: v6 — Selenium estável + login assistido global (abre 1 vez, você loga e confirma)  
-  - EN: v6 — stable Selenium + global assisted login (opens once, you login and confirm)
+  - PT: v6 — Selenium estável + perfis reais (Profile 3/4/5) + login assistido global  
+  - EN: v6 — stable Selenium + real profiles (Profile 3/4/5) + global assisted login
 
 Histórico completo / Full history: [CHANGELOG.md](./CHANGELOG.md)
 
@@ -48,8 +48,7 @@ Histórico completo / Full history: [CHANGELOG.md](./CHANGELOG.md)
 | 3 | `tiktok_liker3.py` | Navegadores diferentes | Varia por browser | Médio | Testar “separar por browser” |
 | 4 | `tiktok_liker4.py` | Anonimizados (isolados) | ActionChains | Médio | Testar isolamento total de perfil |
 | 5 | `tiktok_liker5.py` | Copiados ou anonimizados | CDP/ActionChains | Alto (CDP) | Recomendado para usar o PC livre |
-| 6 | `tiktok_liker6.py` | Copiados (isolados) | send_keys/ActionChains | Alto | Recomendado quando login automático falha |
-| 6 | `tiktok_liker6.py` | Isolados (sem cópia) | send_keys/ActionChains | Alto | Recomendado quando login automático falha |
+| 6 | `tiktok_liker6.py` | Copiados (Profile 3/4/5) | send_keys/ActionChains | Alto | Recomendado quando login automático falha |
 
 ## Requisitos · Requirements
 

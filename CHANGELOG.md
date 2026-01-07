@@ -17,6 +17,12 @@ O formato é baseado em Keep a Changelog e a numeração segue SemVer.
 - Simplifica o v6: remove cópia de perfil e usa user-data-dir isolado por janela.
 - Torna o login assistido global: abre janelas uma vez e aguarda você logar nelas.
 
+### [6.0.2] - 2026-01-06
+
+- Restaura os perfis reais do Chrome (Profile 3/4/5) no v6.
+- Volta a copiar os perfis para um user-data-dir isolado por janela para permitir 3 Chromes.
+- Define por padrão: fechar Chrome antes de copiar e limpar cache no primeiro run (para maximizar chance de manter login).
+
 ### [5.1.0] - 2026-01-06
 
 - Adiciona modo Win32 manual para enviar `L` em background usando janelas já abertas.

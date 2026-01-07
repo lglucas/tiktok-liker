@@ -1,7 +1,7 @@
 """
 TikTok Liker v6
 - Volta ao padrão Selenium que funcionava mesmo em background/minimizado
-- 3 Chromes em paralelo com user-data-dir isolado (1 por janela)
+- 3 Chromes em paralelo com perfis reais (Profile 3/4/5) copiados para user-data-dir isolado
 - Login assistido: o script abre as janelas uma vez, você faz login e confirma no terminal
 """
 
@@ -22,10 +22,12 @@ from selenium.webdriver.common.action_chains import ActionChains
 from webdriver_manager.chrome import ChromeDriverManager
 
 
+CHROME_USER_DATA = r"C:\Users\lucas\AppData\Local\Google\Chrome\User Data"
+
 PROFILES = {
-    "TikTok1": None,
-    "TikTok2": None,
-    "TikTok3": None,
+    "TikTok1": "Profile 3",
+    "TikTok2": "Profile 4",
+    "TikTok3": "Profile 5",
 }
 
 SELENIUM_PROFILE_ROOT = os.path.join(
@@ -42,8 +44,8 @@ CICLO_MAX = 45
 PAUSA_MIN = 5
 PAUSA_MAX = 10
 
-KILL_CHROME_ON_START = False
-CLEAN_PROFILE_CACHE_ON_START = False
+KILL_CHROME_ON_START = True
+CLEAN_PROFILE_CACHE_ON_START = True
 
 WAIT_AFTER_TIKTOK_HOME_SEC = 4
 WAIT_AFTER_LIVE_OPEN_SEC = 5
@@ -51,7 +53,7 @@ WAIT_AFTER_LIVE_OPEN_SEC = 5
 START_RETRIES = 1
 START_RETRY_DELAY_SEC = 0
 
-PROFILE_DIRECTORY = "Default"
+PROFILE_DIRECTORY = None
 
 
 def log(profile, msg):
@@ -114,10 +116,58 @@ def _cleanup_singleton_locks(user_data_dir):
             pass
 
 
-def ensure_profile_dir(profile_name):
-    """Garante um user-data-dir isolado (persistente) para cada janela."""
+def validate_profiles():
+    """Valida se os perfis configurados existem no Chrome."""
+    missing = []
+    for name, profile_dir in PROFILES.items():
+        source_profile_path = os.path.join(CHROME_USER_DATA, profile_dir)
+        if not os.path.isdir(source_profile_path):
+            missing.append((name, profile_dir, source_profile_path))
+
+    if missing:
+        for name, profile_dir, path in missing:
+            print(f"ERRO: {name} -> '{profile_dir}' não encontrado em: {path}")
+        raise FileNotFoundError("Um ou mais perfis do Chrome não existem.")
+
+
+def ensure_profile_copy(profile_name, source_profile_dir):
+    """Garante um user-data-dir isolado, copiando o perfil do Chrome uma única vez."""
+    source_user_data = os.path.normpath(CHROME_USER_DATA)
+    source_profile_path = os.path.join(source_user_data, source_profile_dir)
+
     target_user_data = os.path.join(SELENIUM_PROFILE_ROOT, profile_name)
+    target_profile_path = os.path.join(target_user_data, source_profile_dir)
     os.makedirs(target_user_data, exist_ok=True)
+
+    source_local_state = os.path.join(source_user_data, "Local State")
+    target_local_state = os.path.join(target_user_data, "Local State")
+    if os.path.isfile(source_local_state) and not os.path.isfile(target_local_state):
+        try:
+            shutil.copy2(source_local_state, target_local_state)
+        except Exception:
+            pass
+
+    if not os.path.isdir(target_profile_path):
+        ignore_names = shutil.ignore_patterns(
+            "Cache",
+            "Code Cache",
+            "GPUCache",
+            "GrShaderCache",
+            "ShaderCache",
+            "Crashpad",
+            "optimization_guide_model_cache",
+            "Media Cache",
+            "DawnCache",
+        )
+        log(profile_name, f"Copiando perfil para: {target_profile_path}")
+        shutil.copytree(
+            source_profile_path,
+            target_profile_path,
+            ignore=ignore_names,
+            symlinks=True,
+            ignore_dangling_symlinks=True,
+        )
+
     _cleanup_singleton_locks(target_user_data)
     return target_user_data
 
@@ -132,10 +182,10 @@ def is_browser_alive(driver):
 
 
 class TikTokLiker:
-    def __init__(self, name, _profile_dir, live_url, driver_path):
+    def __init__(self, name, profile_dir, live_url, driver_path):
         """Controla um navegador e o loop de likes para um perfil."""
         self.name = name
-        self.profile_dir = PROFILE_DIRECTORY
+        self.profile_dir = profile_dir
         self.live_url = live_url
         self.driver_path = driver_path
         self.driver = None
@@ -147,7 +197,7 @@ class TikTokLiker:
         log(self.name, "Iniciando navegador...")
         options = Options()
 
-        user_data_dir = ensure_profile_dir(self.name)
+        user_data_dir = ensure_profile_copy(self.name, self.profile_dir)
         options.add_argument(f"--user-data-dir={user_data_dir}")
         options.add_argument(f"--profile-directory={self.profile_dir}")
         options.add_argument("--remote-debugging-pipe")
@@ -294,6 +344,8 @@ def main():
     print("   TikTok Liker v6 - 3 PERFIS")
     print("=" * 50 + "\n")
 
+    validate_profiles()
+
     if KILL_CHROME_ON_START:
         print("Fechando Chrome...")
         kill_chrome()
@@ -312,7 +364,7 @@ def main():
         return
 
     print(f"\nLink: {live_url}")
-    print(f"Perfis: {list(PROFILES.keys())}")
+    print(f"Perfis: {list(PROFILES.keys())} -> {list(PROFILES.values())}")
     print(f"Intervalo: {LIKE_INTERVAL}s (~{int(1/LIKE_INTERVAL)} L/seg por perfil)\n")
     time.sleep(1)
 
