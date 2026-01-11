@@ -6,6 +6,10 @@ O formato é baseado em Keep a Changelog e a numeração segue SemVer.
 
 - Ajustes e melhorias em andamento.
 
+### [7.0.1] - 2026-01-11
+
+- Melhora o v7 para localizar o `VBoxManage.exe` automaticamente (PATH opcional).
+
 ### [7.0.0] - 2026-01-07
 
 - Adiciona a versão v7 como “orquestrador/checklist” para isolamento tipo VM (VirtualBox/Hyper-V).
